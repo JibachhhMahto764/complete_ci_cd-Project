@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<section class="hero">
+
+    <div>
+        <p class="eyebrow">DATA MANAGEMENT</p>
+
+        <h2>Manage your data<br>
+            <span>simply and securely.</span>
+        </h2>
+
+        <p class="hero-text">
+            Store, organize and manage your records
+            from one beautiful dashboard.
+        </p>
+    </div>
+
+</section>
+
+
+<section class="stats">
+
+    <div class="stat-card">
+        <div class="stat-icon">📊</div>
+
+        <div>
+            <p>Total Records</p>
+            <h3>{{ total }}</h3>
+        </div>
+    </div>
+
+
+    <div class="stat-card">
+        <div class="stat-icon">✓</div>
+
+        <div>
+            <p>Active</p>
+            <h3>{{ active }}</h3>
+        </div>
+    </div>
+
+
+    <div class="stat-card">
+        <div class="stat-icon">○</div>
+
+        <div>
+            <p>Inactive</p>
+            <h3>{{ inactive }}</h3>
+        </div>
+    </div>
+
+</section>
+
+
+<section class="panel">
+
+    <div class="panel-header">
+
+        <div>
+            <h2>Records</h2>
+            <p>Manage your stored information</p>
+        </div>
+
+        <button
+            class="primary-btn"
+            onclick="openModal()">
+
+            + Add Record
+
+        </button>
+
+    </div>
+
+
+    <form class="search" method="GET">
+
+        <input
+            type="text"
+            name="search"
+            value="{{ search }}"
+            placeholder="Search by name, email or category...">
+
+        <button type="submit">
+            Search
+        </button>
+
+    </form>
+
+
+    <div class="table-container">
+
+        <table>
+
+            <thead>
+
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Email</th>
+                    <th>Category</th>
+                    <th>Status</th>
+                    <th>Created</th>
+                    <th>Action</th>
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+            {% for record in records %}
+
+                <tr>
+
+                    <td>
+                        <span class="id-badge">
+                            #{{ record.id }}
+                        </span>
+                    </td>
+
+                    <td>
+                        <strong>{{ record.name }}</strong>
+                    </td>
+
+                    <td>
+                        {{ record.email }}
+                    </td>
+
+                    <td>
+                        <span class="category">
+                            {{ record.category }}
+                        </span>
+                    </td>
+
+                    <td>
+
+                        {% if record.status == "Active" %}
+
+                            <span class="status active">
+                                ● Active
+                            </span>
+
+                        {% else %}
+
+                            <span class="status inactive">
+                                ● Inactive
+                            </span>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>
+                        {{ record.created_at }}
+                    </td>
+
+                    <td>
+
+                        <a
+                            class="edit-btn"
+                            href="{{ url_for('edit_page', record_id=record.id) }}">
+                            Edit
+                        </a>
+
+                        <form
+                            class="delete-form"
+                            method="POST"
+                            action="{{ url_for('delete_record', record_id=record.id) }}"
+                            onsubmit="return confirm('Delete this record?');">
+
+                            <button class="delete-btn">
+                                Delete
+                            </button>
+
+                        </form>
+
+                    </td>
+
+                </tr>
+
+            {% else %}
+
+                <tr>
+
+                    <td colspan="7" class="empty">
+
+                        <div class="empty-icon">
+                            📂
+                        </div>
+
+                        <h3>No records found</h3>
+
+                        <p>
+                            Add your first record to get started.
+                        </p>
+
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</section>
+
+
+<div id="modal" class="modal">
+
+    <div class="modal-content">
+
+        <div class="modal-header">
+
+            <div>
+                <h2>Add New Record</h2>
+                <p>Enter the information below.</p>
+            </div>
+
+            <button onclick="closeModal()">
+                ×
+            </button>
+
+        </div>
+
+
+        <form method="POST"
+              action="{{ url_for('add_record') }}">
+
+            <div class="form-grid">
+
+                <div class="form-group">
+
+                    <label>Name</label>
+
+                    <input
+                        type="text"
+                        name="name"
+                        placeholder="John Doe"
+                        required>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Email</label>
+
+                    <input
+                        type="email"
+                        name="email"
+                        placeholder="john@example.com"
+                        required>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Category</label>
+
+                    <select name="category" required>
+
+                        <option value="">
+                            Select category
+                        </option>
+
+                        <option>
+                            Customer
+                        </option>
+
+                        <option>
+                            Employee
+                        </option>
+
+                        <option>
+                            Developer
+                        </option>
+
+                        <option>
+                            Manager
+                        </option>
+
+                        <option>
+                            Other
+                        </option>
+
+                    </select>
+
+                </div>
+
+
+                <div class="form-group">
+
+                    <label>Status</label>
+
+                    <select name="status">
+
+                        <option>
+                            Active
+                        </option>
+
+                        <option>
+                            Inactive
+                        </option>
+
+                    </select>
+
+                </div>
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label>Notes</label>
+
+                <textarea
+                    name="notes"
+                    placeholder="Additional information..."></textarea>
+
+            </div>
+
+
+            <div class="modal-actions">
+
+                <button
+                    type="button"
+                    class="secondary-btn"
+                    onclick="closeModal()">
+
+                    Cancel
+
+                </button>
+
+                <button
+                    type="submit"
+                    class="primary-btn">
+
+                    Save Record
+
+                </button>
+
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<script>
+
+function openModal() {
+    document.getElementById("modal").style.display = "flex";
+}
+
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
+
+window.onclick = function(event) {
+
+    const modal = document.getElementById("modal");
+
+    if (event.target === modal) {
+        closeModal();
+    }
+
+}
+
+</script>
+
+{% endblock %}
