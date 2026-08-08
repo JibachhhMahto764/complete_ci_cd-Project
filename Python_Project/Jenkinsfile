@@ -1,1 +1,176 @@
+pipeline {
 
+    agent any
+
+    environment {
+
+        DOCKER_IMAGE = "jibachh/datahub"
+
+        DOCKER_CREDENTIALS = "dockerhub-credentials"
+
+        GITOPS_REPO = "https://github.com/JibachhhMahto764/datahub-manifests.git"
+
+        GITOPS_CREDENTIALS = "github-credentials"
+
+        IMAGE_TAG = "${BUILD_NUMBER}"
+
+    }
+
+    options {
+
+        timestamps()
+
+        disableConcurrentBuilds()
+
+        buildDiscarder(
+            logRotator(
+                numToKeepStr: '10'
+            )
+        )
+    }
+
+    stages {
+
+        stage('Checkout') {
+
+            steps {
+
+                checkout scm
+
+            }
+        }
+
+
+        stage('Test') {
+
+            steps {
+
+                sh '''
+                    python3 -m venv test-env
+
+                    . test-env/bin/activate
+
+                    pip install --upgrade pip
+
+                    pip install -r requirements.txt
+
+                    python -m py_compile app.py
+
+                    echo "Application syntax check passed"
+                '''
+            }
+        }
+
+
+        stage('Build Docker Image') {
+
+            steps {
+
+                sh """
+                    docker build \
+                        -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
+                        -t ${DOCKER_IMAGE}:latest \
+                        .
+                """
+            }
+        }
+
+
+        stage('Push Docker Image') {
+
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: "${DOCKER_CREDENTIALS}",
+                        usernameVariable: 'DOCKER_USERNAME',
+                        passwordVariable: 'DOCKER_PASSWORD'
+                    )
+                ]) {
+
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | \
+                        docker login \
+                        -u "$DOCKER_USERNAME" \
+                        --password-stdin
+                    '''
+
+                    sh """
+                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+
+                        docker push ${DOCKER_IMAGE}:latest
+                    """
+                }
+            }
+        }
+
+
+        stage('Update GitOps Repository') {
+
+            steps {
+
+                dir('gitops') {
+
+                    git(
+                        url: "${GITOPS_REPO}",
+                        branch: 'main',
+                        credentialsId: "${GITOPS_CREDENTIALS}"
+                    )
+
+                    sh """
+                        sed -i \
+                        's|image: .*|image: ${DOCKER_IMAGE}:${IMAGE_TAG}|' \
+                        deployment.yaml
+                    """
+
+                    sh '''
+                        git config user.name "Jenkins"
+                        git config user.email "jenkins@localhost"
+
+                        git add deployment.yaml
+
+                        git commit \
+                          -m "Update DataHub image to ${IMAGE_TAG}" \
+                          || echo "No changes to commit"
+
+                        git push origin main
+                    '''
+                }
+            }
+        }
+
+    }
+
+    post {
+
+        success {
+
+            echo """
+            ========================================
+            DataHub CI Pipeline Successful
+            ========================================
+
+            Docker Image:
+            ${DOCKER_IMAGE}:${IMAGE_TAG}
+
+            GitOps repository updated.
+
+            Argo CD will now synchronize
+            the new image to K3s.
+            ========================================
+            """
+        }
+
+        failure {
+
+            echo "DataHub CI pipeline failed."
+
+        }
+
+        always {
+
+            sh 'docker logout || true'
+
+        }
+    }
+}
