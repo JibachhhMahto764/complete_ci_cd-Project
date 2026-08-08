@@ -1,1 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: datahub
+  namespace: datahub
 
+spec:
+  ingressClassName: traefik
+
+  rules:
+    - host: datahub.local
+
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+
+            backend:
+              service:
+                name: datahub
+                port:
+                  number: 80
