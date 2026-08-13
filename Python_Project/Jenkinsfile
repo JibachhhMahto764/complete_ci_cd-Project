@@ -1,19 +1,17 @@
+
 pipeline {
 
     agent any
 
     environment {
 
-        DOCKER_IMAGE = "jibachh/datahub"
-
+        DOCKER_IMAGE = "jibachh/python_app"
         DOCKER_CREDENTIALS = "dockerhub-credentials"
 
-        GITOPS_REPO = "https://github.com/JibachhhMahto764/datahub-manifests.git"
-
-        GITOPS_CREDENTIALS = "github-credentials"
+        GITOPS_REPO = "https://github.com/JibachhhMahto764/complete_ci_cd-Project.git"
+        GITOPS_CREDENTIALS = "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"
 
         IMAGE_TAG = "${BUILD_NUMBER}"
-
     }
 
     options {
@@ -32,78 +30,72 @@ pipeline {
     stages {
 
         stage('Checkout') {
-
             steps {
-
                 checkout scm
-
             }
         }
-
 
         stage('Test') {
-
             steps {
 
-                sh '''
-                    python3 -m venv test-env
-
-                    . test-env/bin/activate
-
-                    pip install --upgrade pip
-
-                    pip install -r requirements.txt
-
-                    python -m py_compile app.py
-
-                    echo "Application syntax check passed"
-                '''
-            }
-        }
-
-
-        stage('Build Docker Image') {
-
-            steps {
-
-                sh """
-                    docker build \
-                        -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
-                        -t ${DOCKER_IMAGE}:latest \
-                        .
-                """
-            }
-        }
-
-
-        stage('Push Docker Image') {
-
-            steps {
-
-                withCredentials([
-                    usernamePassword(
-                        credentialsId: "${DOCKER_CREDENTIALS}",
-                        usernameVariable: 'DOCKER_USERNAME',
-                        passwordVariable: 'DOCKER_PASSWORD'
-                    )
-                ]) {
+                dir('Python_Project') {
 
                     sh '''
-                        echo "$DOCKER_PASSWORD" | \
-                        docker login \
-                        -u "$DOCKER_USERNAME" \
-                        --password-stdin
+                        python3 -m venv test-env
+
+                        . test-env/bin/activate
+
+                        pip install --upgrade pip
+
+                        pip install -r requirements.txt
+
+                        python -m py_compile app.py
+
+                        echo "Application syntax check passed"
                     '''
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+
+                dir('Python_Project') {
 
                     sh """
-                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
-
-                        docker push ${DOCKER_IMAGE}:latest
+                        docker build \
+                            -t ${DOCKER_IMAGE}:${IMAGE_TAG} \
+                            -t ${DOCKER_IMAGE}:latest \
+                            .
                     """
                 }
             }
         }
 
+        stage('Push Docker Image') {
+            steps {
+
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: "${DOCKER_CREDENTIALS}",
+                        usernameVariable: 'jibachh',
+                        passwordVariable: 'dckr_pat_R3-l8IBQraitciiZPqLJXtzOswc'
+                    )
+                ]) {
+
+                    sh '''
+                        echo "$DOCKER_PASSWORD" | docker login \
+                            -u "$DOCKER_USERNAME" \
+                            --password-stdin
+                    '''
+
+                    sh """
+                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        docker push ${DOCKER_IMAGE}:latest
+                    """
+                }
+            }
+        }
 
         stage('Update GitOps Repository') {
 
@@ -118,27 +110,24 @@ pipeline {
                     )
 
                     sh """
-                        sed -i \
-                        's|image: .*|image: ${DOCKER_IMAGE}:${IMAGE_TAG}|' \
-                        deployment.yaml
+                        sed -i "s|image: .*|image: ${DOCKER_IMAGE}:${IMAGE_TAG}|" deployment.yaml
                     """
 
-                    sh '''
+                    sh """
                         git config user.name "Jenkins"
                         git config user.email "jenkins@localhost"
 
                         git add deployment.yaml
 
                         git commit \
-                          -m "Update DataHub image to ${IMAGE_TAG}" \
-                          || echo "No changes to commit"
+                            -m "Update DataHub image to ${IMAGE_TAG}" \
+                            || echo "No changes to commit"
 
                         git push origin main
-                    '''
+                    """
                 }
             }
         }
-
     }
 
     post {
@@ -146,31 +135,31 @@ pipeline {
         success {
 
             echo """
-            ========================================
-            DataHub CI Pipeline Successful
-            ========================================
+========================================
+DataHub CI Pipeline Successful
+========================================
 
-            Docker Image:
-            ${DOCKER_IMAGE}:${IMAGE_TAG}
+Docker Image:
+${DOCKER_IMAGE}:${IMAGE_TAG}
 
-            GitOps repository updated.
+GitOps repository updated.
 
-            Argo CD will now synchronize
-            the new image to K3s.
-            ========================================
-            """
+Argo CD will now synchronize
+the new image to K3s.
+
+========================================
+"""
         }
 
         failure {
 
             echo "DataHub CI pipeline failed."
-
         }
 
         always {
 
             sh 'docker logout || true'
-
         }
     }
 }
+
